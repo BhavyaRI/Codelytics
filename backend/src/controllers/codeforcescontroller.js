@@ -32,10 +32,29 @@ const getUserinfo = async (req, res) => {
       const{ratingUpdateTimeSeconds,newRating} = d;
       contestrating[ratingUpdateTimeSeconds] = newRating;
     } 
+
+    //This is for number of prblm solved per tags
+    const ptags={};
+    const solvedp = new Set();
+    for(const p of submissions){
+      const {problem,verdict} = p;
+      if(verdict==='OK' && (problem.tags.length!==0)){
+        const key = `${problem.contestId}-${problem.index}`;
+        if(!solvedp.has(key)){
+          solvedp.add(key);
+          const tags = problem.tags;
+          for(const t of tags){
+            ptags[t] = (ptags[t]||0)+1;
+          }
+        }
+      }
+    }
+
     const data = {
       info:info.data.result[0],
       ratinggraph:contestrating,
-      problemgraph:graphdata
+      problemgraph:graphdata,
+      tagscount:ptags
     }
     res.send(data);
   } catch (error) {

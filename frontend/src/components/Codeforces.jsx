@@ -2,21 +2,23 @@ import React, { useState } from "react";
 import axios from "axios";
 import BarChartGraph from "./BarChartGraph";
 import RatingGraph from "./RatingGraph";
-
+import ProblemTagsPieChart from "./ProblemTagsPieChart"; // Using the Pie Chart
 
 function CodeforcesDashboard() {
   const [handle, setHandle] = useState("");
   const [info, setInfo] = useState(null);
   const [problemGraph, setProblemGraph] = useState(null);
   const [ratinggraph, setRatingGraph] = useState(null);
+  const [tagsCount, setTagsCount] = useState(null);
 
   const fetchUserData = async () => {
     try {
       const response = await axios.get(`http://localhost:3000/api/${handle}`);
-      const { info, problemgraph, ratinggraph } = response.data;
+      const { info, problemgraph, ratinggraph, tagscount } = response.data;
       setInfo(info);
       setProblemGraph(problemgraph);
       setRatingGraph(ratinggraph);
+      setTagsCount(tagscount);
     } catch (error) {
       console.error("Error fetching user data:", error.message);
     }
@@ -33,9 +35,7 @@ function CodeforcesDashboard() {
     return "black";
   };
 
-
-  // If ratinggraph is an object, convert it to an array
-  // e.g. { 1717954500: 363, 1719768900: 629 } => [ { ratingUpdateTimeSeconds: 1717954500, newRating: 363 }, ... ]
+  // Prepare data for the RatingGraph
   const ratingDataArray = ratinggraph
     ? Object.entries(ratinggraph).map(([time, newRating]) => ({
         ratingUpdateTimeSeconds: Number(time),
@@ -43,7 +43,30 @@ function CodeforcesDashboard() {
       }))
     : [];
 
-  // Calculate total problems solved
+  // Prepare and slice data for the Pie Chart
+  const tagsDataForPie = tagsCount
+    ? (() => {
+        const sortedTags = Object.entries(tagsCount)
+          .map(([tag, count]) => ({ tag, count }))
+          .sort((a, b) => b.count - a.count);
+
+        const MAX_SLICES = 15;
+        if (sortedTags.length <= MAX_SLICES) {
+          return sortedTags;
+        }
+
+        const topTags = sortedTags.slice(0, MAX_SLICES - 1);
+        const otherTags = sortedTags.slice(MAX_SLICES - 1);
+        const otherCount = otherTags.reduce((sum, item) => sum + item.count, 0);
+
+        return [
+          ...topTags,
+          { tag: 'Other', count: otherCount },
+        ];
+      })()
+    : [];
+
+  // Calculate total problems solved for the stats card
   const totalProblemsSolved = problemGraph
     ? Object.values(problemGraph).reduce((sum, count) => sum + count, 0)
     : 0;
@@ -129,7 +152,7 @@ function CodeforcesDashboard() {
                 <div className="text-2xl font-bold">{totalProblemsSolved}</div>
                 <div className="text-sm text-gray-600">Problems Solved</div>
               </div>
-              <div className="card bg-white border border-gray-200 shadow-sm p-4">
+              <div className="card bg-white border border-ray-200 shadow-sm p-4">
                 <div className="text-2xl font-bold">
                   {Object.keys(ratinggraph || {}).length}
                 </div>
@@ -142,16 +165,23 @@ function CodeforcesDashboard() {
           {ratingDataArray.length > 0 && (
             <div className="card bg-white shadow-xl p-6 mb-6">
               <h3 className="text-xl font-bold mb-4">Rating Over Time</h3>
-              {/* Pass the array to our Nivo chart */}
               <RatingGraph data={ratingDataArray} />
             </div>
           )}
 
           {/* Problem Graph Section */}
           {problemGraph && (
-            <div className="card bg-white shadow-xl p-6">
-              <h3 className="text-xl font-bold mb-4">Problems Solved</h3>
+            <div className="card bg-white shadow-xl p-6 mb-6">
+              <h3 className="text-xl font-bold mb-4">Problems Solved by Rating</h3>
               <BarChartGraph problemGraph={problemGraph} />
+            </div>
+          )}
+
+          {/* Pie Chart Section for Problem Tags */}
+          {tagsDataForPie.length > 0 && (
+            <div className="card bg-white shadow-xl p-6">
+              <h3 className="text-xl font-bold mb-4">Problems Solved by Tag</h3>
+              <ProblemTagsPieChart data={tagsDataForPie} />
             </div>
           )}
         </div>
