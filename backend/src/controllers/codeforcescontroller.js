@@ -65,5 +65,43 @@ const getUserinfo = async (req, res) => {
   }
 };
 
+const upcomingcontest = async(req,res)=>{
+  try{
+    const contests = await fetch("https://codeforces.com/api/contest.list");
+    const data = await contests.json();
+    
+    if(data.status!=='OK'){
+      throw new Error("Failed to fetch contest");
+    }
 
-module.exports = {getUserinfo};
+    const { timezone } = req.query;
+
+    const upcomingcontest = data.result
+      .filter(contest =>contest.phase==='BEFORE')
+      .map(contest=>{
+        const startTime = new Date(contest.startTimeSeconds*1000);
+        
+        const localStartTime = timezone 
+          ? startTime.toLocaleString("en-US", { timeZone: timezone }) 
+          : startTime.toLocaleString();
+
+        console.log(startTime);
+        console.log(localStartTime);
+        return{
+          id:contest.id,
+          name:contest.name,
+          duration:contest.durationSeconds/3600 + "hrs",
+          startTime : localStartTime
+        };
+      });
+    res.json(upcomingcontest);
+  }
+  catch(err){
+    return res.status(400).json({
+      status:'FAILED',
+      message:err.message,
+    });
+  }
+}
+
+module.exports = {getUserinfo,upcomingcontest};
