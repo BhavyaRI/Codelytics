@@ -67,8 +67,8 @@ const getUserinfo = async (req, res) => {
 
 const upcomingcontest = async(req,res)=>{
   try{
-    const contests = await fetch("https://codeforces.com/api/contest.list");
-    const data = await contests.json();
+    const contests = await axios.get("https://codeforces.com/api/contest.list");
+    const data = contests.data;
     
     if(data.status!=='OK'){
       throw new Error("Failed to fetch contest");
@@ -85,8 +85,6 @@ const upcomingcontest = async(req,res)=>{
           ? startTime.toLocaleString("en-US", { timeZone: timezone }) 
           : startTime.toLocaleString();
 
-        console.log(startTime);
-        console.log(localStartTime);
         return{
           id:contest.id,
           name:contest.name,
