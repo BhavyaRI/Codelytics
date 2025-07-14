@@ -88,6 +88,7 @@ const upcomingcontest = async(req,res)=>{
         return{
           id:contest.id,
           name:contest.name,
+          type:contest.type,
           duration:contest.durationSeconds/3600 + "hrs",
           startTime : localStartTime
         };
