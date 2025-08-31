@@ -1,14 +1,15 @@
 import React from "react";
 import { ResponsiveBar } from "@nivo/bar";
+import { nivoDarkTheme } from "./nivo-theme"; 
 
-// Custom Tooltip for more detailed info on hover
 const CustomTooltip = ({ id, value, indexValue }) => (
   <div
     style={{
       padding: "8px 12px",
-      background: "white",
-      border: "1px solid #ccc",
+      background: "#262626",
+      border: "1px solid #404040",
       borderRadius: "3px",
+      color: "#ffffff",
     }}
   >
     <strong>Rating:</strong> {indexValue}
@@ -24,36 +25,26 @@ function BarChartGraph({ problemGraph }) {
   }));
 
   return (
-    <div style={{ width: "860px", height: "400px" }}>
+    <div style={{ width: "100%", height: "100%" }}>
       <ResponsiveBar
         data={data}
         keys={["count"]}
         indexBy="rating"
         margin={{ top: 50, right: 60, bottom: 50, left: 60 }}
         padding={0.3}
-        // --- Enhancements ---
-        // 1. Color each bar differently based on its rating
+        theme={nivoDarkTheme} 
         colors={{ scheme: "nivo" }}
         colorBy="indexValue"
-        
-        // 2. Add borders to bars
         borderWidth={1}
         borderColor={{ from: "color", modifiers: [["darker", 0.6]] }}
-        
-        // 3. Add labels on top of bars
         enableLabel={true}
         labelSkipWidth={12}
         labelSkipHeight={12}
         labelTextColor={{ from: "color", modifiers: [["darker", 2]] }}
-        
-        // 4. Use the custom tooltip
         tooltip={CustomTooltip}
-
-        // 5. Add animations
         animate={true}
         motionStiffness={90}
         motionDamping={15}
-        // --- Axis Configuration ---
         axisTop={null}
         axisRight={null}
         axisBottom={{

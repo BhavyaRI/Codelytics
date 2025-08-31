@@ -1,119 +1,150 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
+const cfdata = {
+  CODEFORCES: {
+    logo: "https://sta.codeforces.com/s/77938/images/codeforces-logo-with-telegram.png",
+    url: (id) => `https://codeforces.com/contests/${id}`,
+  },
+};
+
+const useCountdown = (starttimesec) => {
+  const [timeLeft, setTimeLeft] = useState(starttimesec * 1000 - new Date().getTime());
+
+  useEffect(() => {
+    if (!starttimesec || isNaN(starttimesec)) return;
+    const timer = setInterval(() => {
+      setTimeLeft(starttimesec * 1000 - new Date().getTime());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [starttimesec]);
+
+  if (isNaN(timeLeft) || timeLeft < 0) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isRunning: false, hasEnded: true };
+  }
+
+  const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+  return { days, hours, minutes, seconds, isRunning: true, hasEnded: false };
+};
+
+const ContestCard = ({ contest }) => {
+  const { days, hours, minutes, seconds, isRunning, hasEnded } = useCountdown(contest.starttimesec);
+  const platform = cfdata.CODEFORCES;
+
+  const frmtdrt = (durationSeconds) => {
+    const h = Math.floor(durationSeconds / 3600);
+    const m = Math.floor((durationSeconds % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
+
+  return (
+    <div className="card bg-dark-card shadow-lg p-6 rounded-xl flex flex-col md:flex-row items-center gap-6 transition-transform transform hover:scale-[1.02]">
+      {platform.logo && (
+        <div className="flex-shrink-0">
+          <img src={platform.logo} alt="Codeforces" className="h-8 w-auto object-contain" />
+        </div>
+      )}
+
+      <div className="flex-grow text-center md:text-left">
+        <div className="flex items-center gap-3 mb-1">
+          <h2 className="text-xl font-bold text-dark-text-primary">{contest.name}</h2>
+          <span className="badge bg-dark-accent text-white font-semibold">{contest.type}</span>
+        </div>
+        <p className="text-sm text-dark-text-secondary">{new Date(contest.starttimesec * 1000).toLocaleString()}</p>
+        <p className="text-sm text-dark-text-secondary">Duration: {frmtdrt(contest.durationSeconds)}</p>
+      </div>
+
+      <div className="flex-shrink-0 text-center">
+        <p className="text-xs text-dark-text-secondary mb-1">{hasEnded ? 'Status' : 'Starts In'}</p>
+        {isRunning ? (
+          <div className="font-mono text-2xl text-dark-accent tracking-widest">
+            <span>{String(days).padStart(2, '0')}:</span>
+            <span>{String(hours).padStart(2, '0')}:</span>
+            <span>{String(minutes).padStart(2, '0')}:</span>
+            <span>{String(seconds).padStart(2, '0')}</span>
+          </div>
+        ) : (
+          <p className="text-2xl text-green-400 font-bold">Running!</p>
+        )}
+      </div>
+
+      <div className="flex-shrink-0">
+        <a
+          href={platform.url ? platform.url(contest.id) : '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn bg-dark-accent text-white border-0 hover:bg-blue-500"
+        >
+          Go to Contest
+        </a>
+      </div>
+    </div>
+  );
+};
+
 const UpcomingContestsPage = () => {
   const [contests, setContests] = useState([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUpcomingContests = async () => {
+    const starttimeparsed = (timeStr) => {
+      const [datePart, timePart] = timeStr.split(', ');
+      const [day, month, year] = datePart.split('/');
+      const parsableDateString = `${month}/${day}/${year}, ${timePart}`;
+      return new Date(parsableDateString).getTime() / 1000;
+    };
+
+    const durationparsed = (durationStr) => {
+      const hours = parseFloat(durationStr.replace('hrs', ''));
+      return hours * 3600;
+    };
+
+    const upcomingcnt = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:3000/api/contests/upcoming"
-        );
-        let data = response.data;
-
-        data = data.sort((a, b) => {
-          if (a.startTimeSeconds && b.startTimeSeconds) {
-            return a.startTimeSeconds - b.startTimeSeconds;
-          }
-          const parseDate = (str) => {
-            const [day, month, yearAndRest] = str.split("/");
-            const [year, timeAndMeridian] = yearAndRest.split(",");
-            return new Date(
-              `${year.trim()}-${month}-${day} ${timeAndMeridian.trim()}`
-            );
-          };
-          return parseDate(a.startTime) - parseDate(b.startTime);
-        });
-
-        setContests(data);
+        const response = await axios.get("http://localhost:3000/api/contests/upcoming");
+        
+        const newData = response.data
+          .map(contest => ({
+            ...contest,
+            site: 'CODEFORCES',
+            starttimesec: starttimeparsed(contest.startTime),
+            durationSeconds: durationparsed(contest.duration),
+          }))
+          .sort((a, b) => a.starttimesec - b.starttimesec);
+        
+        setContests(newData);
       } catch (err) {
-        const errorMessage =
-          err.response?.data?.message ||
-          err.message ||
-          "Failed to fetch upcoming contests";
+        const errorMessage = err.response?.data?.message || err.message || "Failed to fetch upcoming contests";
         setError(errorMessage);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchUpcomingContests();
+    upcomingcnt();
   }, []);
 
   return (
-    <div className="bg-[#f6fafd] min-h-screen py-8 px-2">
-      <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">
-        Upcoming Contests
+    <div className="bg-dark-bg min-h-screen py-8 px-4">
+      <h1 className="text-4xl font-bold text-center mb-8 text-dark-text-primary">
+        Upcoming Codeforces Contests
       </h1>
       <div className="max-w-5xl mx-auto flex flex-col gap-6">
+        {loading && <p className="text-center text-dark-text-secondary">Loading contests...</p>}
         {error && <p className="text-red-500 text-center">{error}</p>}
-        {contests.map((contest) => (
-          <div
-            key={contest.id}
-            className="flex flex-col md:flex-row items-center md:items-start justify-between bg-white rounded-2xl shadow-lg px-8 py-6"
-          >
-            <div className="flex-1 w-full">
-              <h2 className="text-xl font-bold text-gray-800 mb-2">
-                {contest.name}
-              </h2>
-              <div className="text-gray-500">
-                <div className="flex items-center gap-2 mb-1">
-                  {/* Calendar Icon */}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-blue-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <span className="text-base">{contest.startTime}</span>
-                </div>
-                <div className="flex items-center gap-2 mb-1">
-                  {/* Clock Icon */}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-blue-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span className="text-base">
-                    Duration: {contest.duration}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-base">
-                    Contest Type: {contest.type}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-row md:flex-col mt-4 md:mt-0 gap-2 md:gap-4 md:ml-8">
-              <a
-                href={`https://codeforces.com/contest`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow transition"
-              >
-                Register
-              </a>
-            </div>
-          </div>
-        ))}
+        {!loading && contests.length > 0 ? (
+            contests.map((contest) => (
+                <ContestCard key={contest.id} contest={contest} />
+            ))
+        ) : (
+            !loading && <p className="text-center text-dark-text-secondary">No upcoming Codeforces contests found.</p>
+        )}
       </div>
     </div>
   );
