@@ -17,7 +17,7 @@ function LeetcodeDashboard() {
     setError(null);
     setUserData(null);
     try {
-      const response = await axios.get(`http://localhost:3000/api/leetcode/${username}`);
+      const response = await axios.get(`/api/leetcode/${username}`);
       setUserData(response.data);
     } catch (err) {
       if (err.response && err.response.status === 404) {
