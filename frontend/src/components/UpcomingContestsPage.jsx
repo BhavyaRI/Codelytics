@@ -20,8 +20,10 @@ const useCountdown = (starttimesec) => {
     return () => clearInterval(timer);
   }, [starttimesec]);
 
-  if (isNaN(timeLeft) || timeLeft < 0) {
-    return { days: 0, hours: 0, minutes: 0, seconds: 0, isRunning: false, hasEnded: true };
+  const hasEnded = timeLeft < 0;
+
+  if (isNaN(timeLeft) || hasEnded) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isRunning: !hasEnded, hasEnded: true };
   }
 
   const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
@@ -33,7 +35,7 @@ const useCountdown = (starttimesec) => {
 };
 
 const ContestCard = ({ contest }) => {
-  const { days, hours, minutes, seconds, isRunning, hasEnded } = useCountdown(contest.starttimesec);
+  const { days, hours, minutes, seconds, isRunning, hasEnded } = useCountdown(contest.startTimeSeconds);
   const platform = cfdata.CODEFORCES;
 
   const frmtdrt = (durationSeconds) => {
@@ -51,17 +53,17 @@ const ContestCard = ({ contest }) => {
       )}
 
       <div className="flex-grow text-center md:text-left">
-        <div className="flex items-center gap-3 mb-1">
-          <h2 className="text-xl font-bold text-dark-text-primary">{contest.name}</h2>
-          <span className="badge bg-dark-accent text-white font-semibold">{contest.type}</span>
+        <div className="flex items-start gap-3 mb-1">
+          <h2 className="text-xl font-bold text-dark-text-primary flex-grow">{contest.name}</h2>
+          <span className="badge bg-dark-accent text-white font-semibold flex-shrink-0 mt-1">{contest.type}</span>
         </div>
-        <p className="text-sm text-dark-text-secondary">{new Date(contest.starttimesec * 1000).toLocaleString()}</p>
+        <p className="text-sm text-dark-text-secondary">{new Date(contest.startTimeSeconds * 1000).toLocaleString()}</p>
         <p className="text-sm text-dark-text-secondary">Duration: {frmtdrt(contest.durationSeconds)}</p>
       </div>
 
       <div className="flex-shrink-0 text-center">
         <p className="text-xs text-dark-text-secondary mb-1">{hasEnded ? 'Status' : 'Starts In'}</p>
-        {isRunning ? (
+        {isRunning && !hasEnded ? (
           <div className="font-mono text-2xl text-dark-accent tracking-widest">
             <span>{String(days).padStart(2, '0')}:</span>
             <span>{String(hours).padStart(2, '0')}:</span>
@@ -69,7 +71,7 @@ const ContestCard = ({ contest }) => {
             <span>{String(seconds).padStart(2, '0')}</span>
           </div>
         ) : (
-          <p className="text-2xl text-green-400 font-bold">Running!</p>
+          <p className="text-2xl text-green-400 font-bold">{hasEnded ? "Ended" : "Running!"}</p>
         )}
       </div>
 
@@ -93,30 +95,16 @@ const UpcomingContestsPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const starttimeparsed = (timeStr) => {
-      const [datePart, timePart] = timeStr.split(', ');
-      const [day, month, year] = datePart.split('/');
-      const parsableDateString = `${month}/${day}/${year}, ${timePart}`;
-      return new Date(parsableDateString).getTime() / 1000;
-    };
-
-    const durationparsed = (durationStr) => {
-      const hours = parseFloat(durationStr.replace('hrs', ''));
-      return hours * 3600;
-    };
-
     const upcomingcnt = async () => {
       try {
-        const response = await axios.get("/api/contests/upcoming");
+        const response = await axios.get("http://localhost:3000/api/contests/upcoming");
         
         const newData = response.data
           .map(contest => ({
             ...contest,
             site: 'CODEFORCES',
-            starttimesec: starttimeparsed(contest.startTime),
-            durationSeconds: durationparsed(contest.duration),
           }))
-          .sort((a, b) => a.starttimesec - b.starttimesec);
+          .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
         
         setContests(newData);
       } catch (err) {

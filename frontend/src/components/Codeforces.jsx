@@ -22,7 +22,7 @@ function CodeforcesDashboard() {
     setError(null);
     setInfo(null);
     try {
-      const response = await axios.get(`/api/${handle}`);
+      const response = await axios.get(`http://localhost:3000/api/${handle}`);
       const { info, problemgraph, ratinggraph, tagscount } = response.data;
       setInfo(info);
       setProblemGraph(problemgraph);

@@ -1,18 +1,29 @@
-const axios = require("axios");
 const { LeetCode } = require("leetcode-query");
+const redisClient = require('../config/redisClient'); 
+
+const CACHE_EXPIRATION_SECONDS = 3600; // Cache for 1 hour
 
 const getUserData = async (req, res) => {
   try {
-    const username = req.params.userId; 
+    const username = req.params.userId;
     if (!username) {
       return res.status(400).json({ error: "Username is required" });
     }
+    
+    const cacheKey = `leetcode:${username}`;
 
+    //Check the cache first
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+      return res.send(JSON.parse(cachedData));
+    }
+
+    //no cache then direct api
     const leetcode = new LeetCode();
     const user = await leetcode.user(username);
 
     if (!user.matchedUser) {
-      return res.status(404).json({ error: "User not found" }); 
+      return res.status(404).json({ error: "User not found" });
     }
 
     const userProfile = {
@@ -52,14 +63,24 @@ const getUserData = async (req, res) => {
       badges,
     };
 
+    //Store the new data in Redis with an expiration time
+    await redisClient.setEx(cacheKey, CACHE_EXPIRATION_SECONDS, JSON.stringify(leetData));
+
     res.send(leetData);
 
   } catch (error) {
-    return res.status(500).json({ 
-        status:'FAILED',
-        message:error.message,
+    // Check if the error is a 'User not found' type error from the leetcode-query library
+    if (error.message && error.message.includes("User not found")) {
+        return res.status(404).json({
+            status: 'FAILED',
+            message: 'User not found'
+        });
+    }
+    return res.status(500).json({
+      status: 'FAILED',
+      message: error.message,
     });
   }
 };
 
-module.exports = {getUserData};
+module.exports = { getUserData };
